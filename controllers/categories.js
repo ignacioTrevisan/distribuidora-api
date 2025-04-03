@@ -50,4 +50,137 @@ const getAllCategories =async (req, res = express.response)=>{
                     res.status(500).json({ error: 'Error interno del servidor' });
                 }
             }
-        module.exports ={getAllCategories};
+
+
+            // Crear una nueva categoría
+const createCategoria = async (req, res) => {
+    // Validar los datos recibidos
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({
+            ok: false,
+            errors: errors.array()
+        });
+    }
+
+    const { nombre, url, icono } = req.body;
+
+    try {
+        // Insertar la categoría
+        const [result] = await pool.execute(`
+            INSERT INTO categorias (nombre, url, icono)
+            VALUES (?, ?, ?)
+        `, [nombre, url, icono]);
+
+        res.status(201).json({
+            ok: true,
+            categoria: {
+                id: result.insertId,
+                nombre,
+                url,
+                icono
+            }
+        });
+    } catch (error) {
+        console.error('Error al crear categoría:', error);
+        res.status(500).json({ 
+            ok: false,
+            msg: 'Error interno del servidor' 
+        });
+    }
+};
+
+// Actualizar una categoría
+const updateCategoria = async (req, res) => {
+    // Validar los datos recibidos
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({
+            ok: false,
+            errors: errors.array()
+        });
+    }
+
+    const categoriaId = req.params.id;
+    const { nombre, url, icono } = req.body;
+
+    try {
+        // Verificar si la categoría existe
+        const [categoria] = await pool.execute(`
+            SELECT id FROM categorias WHERE id = ?
+        `, [categoriaId]);
+
+        if (categoria.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                msg: 'Categoría no encontrada'
+            });
+        }
+
+        // Actualizar la categoría
+        await pool.execute(`
+            UPDATE categorias
+            SET nombre = ?, url = ?, icono = ?
+            WHERE id = ?
+        `, [nombre, url, icono, categoriaId]);
+
+        res.json({
+            ok: true,
+            categoria: {
+                id: parseInt(categoriaId),
+                nombre,
+                url,
+                icono
+            }
+        });
+    } catch (error) {
+        console.error('Error al actualizar categoría:', error);
+        res.status(500).json({ 
+            ok: false,
+            msg: 'Error interno del servidor' 
+        });
+    }
+};
+
+// Eliminar una categoría
+const deleteCategoria = async (req, res) => {
+    const categoriaId = req.params.id;
+
+    try {
+        // Verificar si la categoría existe
+        const [categoria] = await pool.execute(`
+            SELECT id FROM categorias WHERE id = ?
+        `, [categoriaId]);
+
+        if (categoria.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                msg: 'Categoría no encontrada'
+            });
+        }
+
+        // Primero eliminar las relaciones en categorias_secciones
+        await pool.execute(`
+            DELETE FROM categorias_secciones
+            WHERE idCategoria = ?
+        `, [categoriaId]);
+
+        // Luego eliminar la categoría
+        await pool.execute(`
+            DELETE FROM categorias
+            WHERE id = ?
+        `, [categoriaId]);
+
+        res.json({
+            ok: true,
+            msg: 'Categoría eliminada correctamente'
+        });
+    } catch (error) {
+        console.error('Error al eliminar categoría:', error);
+        res.status(500).json({ 
+            ok: false,
+            msg: 'Error interno del servidor' 
+        });
+    }
+};
+module.exports ={getAllCategories};

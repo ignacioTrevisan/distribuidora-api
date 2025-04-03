@@ -1,3 +1,4 @@
+const { validationResult } = require('express-validator');
 const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
@@ -7,9 +8,7 @@ const pool = mysql.createPool({
   database: 'baseDeDatos'
 });
 
-const getAllCategories =async (req, res = express.response)=>{
-
-    
+const getAll =async (req, res = express.response)=>{
         try {
             // Primero obtenemos todas las categorías
             const [categorias] = await pool.execute(`
@@ -22,6 +21,7 @@ const getAllCategories =async (req, res = express.response)=>{
                 const resultado = await Promise.all(categorias.map(async (categoria) => {
                     const [secciones] = await pool.execute(`
                         SELECT 
+                        s.id as id,
                         s.nombre as Nombre,
                         cs.descripcion as Descripcion,
                         s.url as Url,
@@ -51,7 +51,26 @@ const getAllCategories =async (req, res = express.response)=>{
                 }
             }
 
-
+const getAllCategories =async (req, res = express.response)=>{
+        try {
+            // Primero obtenemos todas las categorías
+            const [categorias] = await pool.execute(`
+                SELECT id, nombre as Nombre, url as Url, icono
+                FROM categorias
+                ORDER BY nombre
+                `);
+                
+                
+                    
+                    return res.status(200).json({
+                        ok:true,
+                        data: categorias
+                    })
+                } catch (error) {
+                    console.error('Error al obtener categorías y secciones:', error);
+                    res.status(500).json({ error: 'Error interno del servidor' });
+                }
+            }
             // Crear una nueva categoría
 const createCategoria = async (req, res) => {
     // Validar los datos recibidos
@@ -183,4 +202,6 @@ const deleteCategoria = async (req, res) => {
         });
     }
 };
-module.exports ={getAllCategories};
+module.exports ={getAllCategories,createCategoria,getAll,
+updateCategoria,
+deleteCategoria};

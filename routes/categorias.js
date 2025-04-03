@@ -1,24 +1,23 @@
 // routes/categorias.js
 const express = require('express');
 const { check } = require('express-validator');
-const router = express.Router();
-
+const { Router } = require('express');
+const router = Router();
 const { 
-    getCategorias, 
+    getAllCategories, 
     getCategoria, 
+    getAll,
     createCategoria, 
     updateCategoria, 
     deleteCategoria 
-} = require('../controllers/categoryController');
+} = require('../controllers/categories');
 
 const { validarJWT, validarAdmin } = require('../middlewares/validar-jwt');
 
 // Ruta pública para obtener todas las categorías con sus secciones
-router.get('/', getCategorias);
+router.get('/', [],getAll);
 
-// Ruta pública para obtener una categoría específica
-router.get('/:id', getCategoria);
-
+router.get('/all', [],getAllCategories);
 // Rutas protegidas para administradores
 // Crear categoría
 router.post('/', [
@@ -32,7 +31,6 @@ router.post('/', [
 // Actualizar categoría
 router.put('/:id', [
     validarJWT,
-    validarAdmin,
     check('nombre', 'El nombre es obligatorio').not().isEmpty(),
     check('url', 'La URL es obligatoria').not().isEmpty(),
     check('icono', 'El icono es obligatorio').not().isEmpty()

@@ -2,7 +2,7 @@
 const jwt = require('jsonwebtoken');
 
 // Secreto para JWT - debería coincidir con el del controlador
-const JWT_SECRET = 'tu_secreto_super_seguro_para_jwt';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Middleware para validar JWT
 const validarJWT = (req, res, next) => {
@@ -28,6 +28,7 @@ const validarJWT = (req, res, next) => {
 
         next();
     } catch (error) {
+        console.log(error)
         return res.status(401).json({
             ok: false,
             msg: 'Token no válido'

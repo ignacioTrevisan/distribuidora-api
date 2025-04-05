@@ -1,24 +1,23 @@
 const express = require('express');
 const app = express();
 const mysql = require('mysql2/promise');
-app.use(express.json());
 const cors = require('cors');
 require('dotenv').config();
 
-
-app.use(cors());
+// Configuración CORS más detallada
 app.use(cors({
-    origin: '*'
+    origin: ['http://localhost:3001', 'http://127.0.0.1:3001'], // Orígenes permitidos
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Métodos permitidos
+    allowedHeaders: ['Content-Type', 'x-token', 'Authorization'] // Encabezados permitidos
 }));
 
+// Middleware para parsear JSON
+app.use(express.json());
 
-
-app.use('/api/categories', require('./routes/categorias'))
-
-app.use('/api/users',require('./routes/users'))
-
-
-
+// Rutas
+app.use('/api/categories', require('./routes/categorias'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/sections', require('./routes/secciones'));
 
 const PORT = 3000;
 app.listen(PORT, () => {

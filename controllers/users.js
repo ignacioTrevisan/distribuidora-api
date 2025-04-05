@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET
 console.log({JWT_SECRET})
 const JWT_EXPIRES_IN = '24h';
 
-// Pool de conexión a la base de datos
+
 const pool = require('../config/db');
 
 // Controlador para login

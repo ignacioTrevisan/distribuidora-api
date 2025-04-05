@@ -4,37 +4,51 @@ const { check } = require('express-validator');
 const { Router } = require('express');
 const router = Router();
 const { 
-    getAllCategories, 
-    getCategoria, 
+    getAllCategories,
+    getActiveCategories, 
     getAll,
+    getActiveOnly,
     createCategoria, 
-    updateCategoria, 
+    updateCategoria,
+    updateCategoriaActivo,
     deleteCategoria 
 } = require('../controllers/categories');
 
 const { validarJWT, validarAdmin } = require('../middlewares/validar-jwt');
 
-// Ruta pública para obtener todas las categorías con sus secciones
-router.get('/', [],getAll);
+// Rutas públicas
 
-router.get('/all', [],getAllCategories);
+// Obtener todas las categorías con sus secciones (incluye inactivas)
+router.get('/', [], getAll);
+
+// Obtener solo categorías activas con sus secciones activas
+router.get('/active', [], getActiveOnly);
+
+// Obtener todas las categorías sin secciones (incluye inactivas)
+router.get('/all', [], getAllCategories);
+
+// Obtener solo categorías activas sin secciones
+router.get('/all/active', [], getActiveCategories);
+
 // Rutas protegidas para administradores
+
 // Crear categoría
 router.post('/', [
     validarJWT,
-    validarAdmin,
-    check('nombre', 'El nombre es obligatorio').not().isEmpty(),
-    check('url', 'La URL es obligatoria').not().isEmpty(),
-    check('icono', 'El icono es obligatorio').not().isEmpty()
+    check('nombre', 'El nombre es obligatorio').not().isEmpty()
 ], createCategoria);
 
-// Actualizar categoría
+// Actualizar categoría completa
 router.put('/:id', [
     validarJWT,
     check('nombre', 'El nombre es obligatorio').not().isEmpty(),
-    check('url', 'La URL es obligatoria').not().isEmpty(),
-    check('icono', 'El icono es obligatorio').not().isEmpty()
 ], updateCategoria);
+
+// Actualizar solo el estado activo de una categoría
+router.patch('/:id/estado', [
+    validarJWT,
+    check('activo', 'El campo activo es obligatorio').isBoolean()
+], updateCategoriaActivo);
 
 // Eliminar categoría
 router.delete('/:id', [

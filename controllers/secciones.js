@@ -5,12 +5,17 @@ const pool = require('../config/db');
 // Obtener todas las secciones
 const getSecciones = async (req, res) => {
     try {
+        // Consulta con JOIN para obtener secciones con su información de categoría
         const [secciones] = await pool.execute(`
-            SELECT id, nombre, url
-            FROM secciones
-            ORDER BY nombre
+            SELECT s.id, s.nombre, s.icono, s.descripcion, s.activo,
+                   cs.idCategoria,
+                   c.nombre as categoriaNombre
+            FROM secciones s
+            LEFT JOIN categorias_secciones cs ON s.id = cs.idSeccion
+            LEFT JOIN categorias c ON cs.idCategoria = c.id
+            ORDER BY s.nombre
         `);
-
+        
         res.json({
             ok: true,
             secciones
@@ -23,7 +28,6 @@ const getSecciones = async (req, res) => {
         });
     }
 };
-
 // Obtener una sección específica
 const getSeccion = async (req, res) => {
     const seccionId = req.params.id;
@@ -54,8 +58,7 @@ const getSeccion = async (req, res) => {
         });
     }
 };
-
-// Crear una nueva sección
+// Crear una nueva sección con relación a una categoría
 const createSeccion = async (req, res) => {
     // Validar los datos recibidos
     const errors = validationResult(req);
@@ -66,32 +69,74 @@ const createSeccion = async (req, res) => {
         });
     }
 
-    const { nombre, url } = req.body;
+    const { nombre, descripcion, icono, activo = true, idCategoria } = req.body;
 
+    // Iniciar una transacción
+    const connection = await pool.getConnection();
+    
     try {
-        // Insertar la sección
-        const [result] = await pool.execute(`
-            INSERT INTO secciones (nombre, url)
+        await connection.beginTransaction();
+
+        // 1. Verificar si la categoría existe usando el ID directamente
+        const [categorias] = await connection.execute(`
+            SELECT id, nombre FROM categorias 
+            WHERE id = ?
+            LIMIT 1
+        `, [idCategoria]);
+
+        // Verificar si se encontró la categoría
+        if (categorias.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({
+                ok: false,
+                msg: `No se encontró la categoría con ID: ${idCategoria}`
+            });
+        }
+
+        // 2. Insertar la nueva sección
+        const [result] = await connection.execute(`
+            INSERT INTO secciones (nombre, descripcion, icono, activo)
+            VALUES (?, ?, ?, ?)
+        `, [nombre, descripcion, icono, activo ? 1 : 0]);
+
+        const seccionId = result.insertId;
+
+        // 3. Crear la relación en la tabla categorias_secciones usando el ID proporcionado
+        await connection.execute(`
+            INSERT INTO categorias_secciones (idCategoria, idSeccion)
             VALUES (?, ?)
-        `, [nombre, url]);
+        `, [idCategoria, seccionId]);
+
+        // Confirmar la transacción
+        await connection.commit();
+
+        // Obtener los datos completos de la sección creada
+        const [seccion] = await pool.execute(`
+            SELECT s.id, s.nombre, s.descripcion, s.icono, s.activo,
+                   c.id as idCategoria, c.nombre as categoriaNombre
+            FROM secciones s
+            JOIN categorias_secciones cs ON s.id = cs.idSeccion
+            JOIN categorias c ON cs.idCategoria = c.id
+            WHERE s.id = ?
+        `, [seccionId]);
 
         res.status(201).json({
             ok: true,
-            seccion: {
-                id: result.insertId,
-                nombre,
-                url
-            }
+            seccion: seccion[0]
         });
     } catch (error) {
+        // Revertir la transacción en caso de error
+        await connection.rollback();
         console.error('Error al crear sección:', error);
         res.status(500).json({ 
             ok: false,
             msg: 'Error interno del servidor' 
         });
+    } finally {
+        // Siempre liberar la conexión
+        connection.release();
     }
 };
-
 // Actualizar una sección
 const updateSeccion = async (req, res) => {
     // Validar los datos recibidos

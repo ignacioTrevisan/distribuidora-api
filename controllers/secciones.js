@@ -149,7 +149,8 @@ const updateSeccion = async (req, res) => {
     }
 
     const seccionId = req.params.id;
-    const { nombre, url } = req.body;
+    const { nombre, descripcion, icono, activo = true, idCategoria } = req.body;
+
 
     try {
         // Verificar si la sección existe
@@ -165,11 +166,34 @@ const updateSeccion = async (req, res) => {
         }
 
         // Actualizar la sección
+        // Actualizar la sección con los campos proporcionados
         await pool.execute(`
             UPDATE secciones
-            SET nombre = ?, url = ?
+            SET nombre = ?, descripcion = ?, icono = ?, activo = ?
             WHERE id = ?
-        `, [nombre, url, seccionId]);
+        `, [nombre, descripcion, icono, activo ? 1 : 0, seccionId]);
+
+        // Actualizar la relación con la categoría si se proporciona idCategoria
+        if (idCategoria) {
+            // Verificar si la categoría existe
+            const [categoria] = await pool.execute(`
+            SELECT id FROM categorias WHERE id = ?
+            `, [idCategoria]);
+
+            if (categoria.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                msg: 'Categoría no encontrada'
+            });
+            }
+
+            // Actualizar la relación en categorias_secciones
+            await pool.execute(`
+            UPDATE categorias_secciones
+            SET idCategoria = ?
+            WHERE idSeccion = ?
+            `, [idCategoria, seccionId]);
+        }
 
         res.json({
             ok: true,

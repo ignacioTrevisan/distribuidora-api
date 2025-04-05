@@ -381,6 +381,48 @@ const eliminarAsociacionSeccionCategoria = async (req, res) => {
     }
 };
 
+// Cambiar visibilidad de una sección
+const toggleVisibilidadSeccion = async (req, res) => {
+    const seccionId = req.params.id;
+
+    try {
+        // Verificar si la sección existe
+        const [seccion] = await pool.execute(`
+            SELECT id, activo FROM secciones WHERE id = ?
+        `, [seccionId]);
+
+        if (seccion.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                msg: 'Sección no encontrada'
+            });
+        }
+
+        // Cambiar el estado de visibilidad
+        const nuevoEstado = !seccion[0].activo;
+        await pool.execute(`
+            UPDATE secciones
+            SET activo = ?
+            WHERE id = ?
+        `, [nuevoEstado ? 1 : 0, seccionId]);
+
+        res.json({
+            ok: true,
+            msg: 'Visibilidad actualizada correctamente',
+            seccion: {
+                id: parseInt(seccionId),
+                activo: nuevoEstado
+            }
+        });
+    } catch (error) {
+        console.error('Error al cambiar visibilidad de la sección:', error);
+        res.status(500).json({ 
+            ok: false,
+            msg: 'Error interno del servidor' 
+        });
+    }
+};
+
 module.exports = {
     getSecciones,
     getSeccion,
@@ -388,5 +430,6 @@ module.exports = {
     updateSeccion,
     deleteSeccion,
     asociarSeccionCategoria,
+    toggleVisibilidadSeccion,
     eliminarAsociacionSeccionCategoria
 };

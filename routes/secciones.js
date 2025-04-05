@@ -4,7 +4,7 @@ const { check } = require('express-validator');
 const { Router } = require('express');
 const router = Router();
 const { 
-    getSecciones,createSeccion
+    getSecciones,createSeccion,deleteSeccion
 } = require('../controllers/secciones');
 
 const { validarJWT, validarAdmin } = require('../middlewares/validar-jwt');
@@ -22,5 +22,10 @@ router.post('/', [
     check('activo', 'El estado activo es obligatorio').default(true).isBoolean(),
     check('idCategoria', 'El id de la categoría es obligatorio').not().isEmpty(),
 ], createSeccion);
+
+
+router.delete('/:id', [
+    validarJWT], deleteSeccion);
+
 
 module.exports = router;

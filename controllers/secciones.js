@@ -200,7 +200,7 @@ const updateSeccion = async (req, res) => {
             seccion: {
                 id: parseInt(seccionId),
                 nombre,
-                url
+                 descripcion, icono, activo: activo ? true : false, idCategoria
             }
         });
     } catch (error) {

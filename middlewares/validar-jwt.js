@@ -6,17 +6,16 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 // Middleware para validar JWT
 const validarJWT = (req, res, next) => {
-    // Obtener el token del header
-    const token = req.header('x-token');
-
-    // Verificar si hay token
+    // Obtener el token de la cookie
+    const token = req.cookies.token;
+    
     if (!token) {
         return res.status(401).json({
             ok: false,
             msg: 'No hay token en la petición'
         });
     }
-
+    
     try {
         // Verificar el token
         const { uid, nombre, email } = jwt.verify(token, JWT_SECRET);
@@ -25,10 +24,9 @@ const validarJWT = (req, res, next) => {
         req.uid = uid;
         req.nombre = nombre;
         req.email = email;
-
         next();
     } catch (error) {
-        console.log(error)
+        console.log(error);
         return res.status(401).json({
             ok: false,
             msg: 'Token no válido'

@@ -46,15 +46,20 @@ const login = async (req, res) => {
                 msg: 'Credenciales incorrectas'
             });
         }
-
-        // Generar JWT
-        const payload = {
+          const payload = {
             uid: usuario.id,
             nombre: usuario.nombre,
             email: usuario.email
         };
-
         const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+        // Establecer el token como una cookie HTTP
+        res.cookie('token', token, {
+            httpOnly: true, // Hace que la cookie no sea accesible mediante JavaScript
+            secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
+            sameSite: 'lax', // Protección contra ataques CSRF
+            maxAge: 24 * 60 * 60 * 1000 // 24 horas (ajusta según JWT_EXPIRES_IN)
+        });
 
         // Responder con el token
         return res.status(200).json({
@@ -62,7 +67,6 @@ const login = async (req, res) => {
             uid: usuario.id,
             nombre: usuario.nombre,
             email: usuario.email,
-         
             token
         });
 
@@ -75,27 +79,39 @@ const login = async (req, res) => {
     }
 };
 
-// Controlador para verificar y renovar token
-const renovarToken = async (req, res) => {
-    // El uid y nombre vienen del middleware de validación JWT
-    const { uid, nombre, email } = req;
 
+const renovarToken = async (req, res) => {
+    // Usar las propiedades individuales que establece tu middleware
+    const uid = req.uid;
+    const nombre = req.nombre;
+    const email = req.email;
+    
     try {
         // Generar un nuevo JWT
         const payload = { uid, nombre, email };
-        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-
+        const newToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+        
+        // Establecer el nuevo token como cookie (si usas cookies)
+        res.cookie('token', newToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000
+        });
+        
+        // Enviar respuesta
         return res.json({
+            authenticated: true,
             ok: true,
             uid,
             nombre,
-            email,
-            token
+            email
+            
         });
-
     } catch (error) {
         console.error('Error al renovar token:', error);
         return res.status(500).json({
+            authenticated: false,
             ok: false,
             msg: 'Error en el servidor'
         });
@@ -163,9 +179,34 @@ const register = async (req, res) => {
         });
     }
 };
+const borrarJWT = async (req, res) => {
+  
+  try {
+    // Eliminar la cookie configurando su expiración en el pasado
+    res.cookie('token', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      expires: new Date(0) // Fecha en el pasado = eliminación inmediata
+    });
+
+    return res.status(200).json({
+      ok: true,
+      msg: 'Sesión cerrada correctamente'
+    });
+  } catch (error) {
+    console.error('Error en logout:', error);
+    return res.status(500).json({
+      ok: false,
+      msg: 'Error al cerrar sesión'
+    });
+  }
+};
+
 
 module.exports = {
     login,
     renovarToken,
-    register
+    register,
+    borrarJWT
 };

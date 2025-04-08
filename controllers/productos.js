@@ -15,19 +15,20 @@ const pool = mysql.createPool({
 const getProductos = async (req, res) => {
     try {
         // Determinar si mostrar todos los productos o solo visibles
-        const mostrarTodos = req.query.todos === 'true' && req.usuario?.admin;
+        const mostrarTodos = req.query.todos === 'true' ? true : false
         
         let query = `
             SELECT 
                 p.id, 
                 p.nombre, 
+                p.slug,
                 p.descripcion, 
-                p.es_destacado, 
-                p.es_nuevo, 
-                p.activo,
+                p.es_destacado as destacado, 
+                p.es_nuevo as nuevo, 
+                p.activo as visible,
                 p.imagen_principal,
-                p.imagen_extra1,
-                p.imagen_extra2,
+                p.imagen_extra1 as imagen2,
+                p.imagen_extra2 as imagen3,
                 s.id as idSeccion, 
                 s.nombre as seccionNombre,
                 c.id as idCategoria,
@@ -48,20 +49,13 @@ const getProductos = async (req, res) => {
         
         const [productos] = await pool.execute(query);
         
-        // Procesar las imágenes para incluir URLs completas
-        const productosConImagenes = productos.map(producto => {
-            return {
-                ...producto,
-                imagenPrincipal: producto.imagenPrincipal ? `${process.env.BASE_URL}/uploads/productos/${producto.imagenPrincipal}` : null,
-                imagen2: producto.imagen2 ? `${process.env.BASE_URL}/uploads/productos/${producto.imagen2}` : null,
-                imagen3: producto.imagen3 ? `${process.env.BASE_URL}/uploads/productos/${producto.imagen3}` : null
-            };
-        });
+      
+    
 
         res.json({
             ok: true,
-            total: productosConImagenes.length,
-            productos: productosConImagenes
+            total: productos.length,
+           data:productos
         });
     } catch (error) {
         console.error('Error al obtener productos:', error);

@@ -65,17 +65,18 @@ router.post('/', [
 ], createProducto);
 
 // Actualizar un producto
+// Ruta para actualización parcial de productos
 router.put('/:id', [
     validarJWT,
-    check('nombre', 'El nombre es obligatorio').not().isEmpty(),
-    check('descripcion', 'La descripción es obligatoria').not().isEmpty(),
-     check('imagen_principal', 'La imagen principal es obligatoria').not().isEmpty(),
-     check('imagen_extra1', 'La imagen extra numero 1 es obligatoria').not().isEmpty(),
-     check('imagen_extra2', 'La imagen extra numero 2 es obligatoria').not().isEmpty(),
-    check('idSeccion', 'El id de la sección es obligatorio').not().isEmpty(),
+    check('nombre', 'El nombre es obligatorio').optional(),
+    check('descripcion', 'La descripción debe ser texto').optional(),
+    check('idSeccion', 'El id de la sección debe ser válido').optional(),
     check('destacado', 'El campo destacado debe ser un booleano').optional().isBoolean(),
     check('nuevo', 'El campo nuevo debe ser un booleano').optional().isBoolean(),
     check('visible', 'El campo visible debe ser un booleano').optional().isBoolean(),
+    check('imagen_principal', 'La imagen principal debe ser una URL válida').optional(),
+    check('imagen_extra1', 'La imagen extra 1 debe ser una URL válida').optional(),
+    check('imagen_extra2', 'La imagen extra 2 debe ser una URL válida').optional(),
     validarCampos
 ], updateProducto);
 

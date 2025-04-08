@@ -505,20 +505,28 @@ const updateProducto = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { nombre, descripcion, idSeccion, destacado, nuevo, visible } = req.body;
-    
-    // Extraer las imágenes del cuerpo de la petición
-    const { imagenPrincipal, imagen2, imagen3 } = req.body;
-    
+    const { 
+        nombre, 
+        descripcion, 
+        idSeccion, 
+        destacado, 
+        nuevo, 
+        visible, 
+        imagen_principal, 
+        imagen_extra1, 
+        imagen_extra2, 
+        slug: slugRequest 
+    } = req.body;
+        
     // Iniciar una transacción
     const connection = await pool.getConnection();
     
     try {
         await connection.beginTransaction();
 
-        // 1. Verificar si el producto existe
+        // 1. Verificar si el producto existe y obtener sus datos actuales
         const [productos] = await connection.execute(`
-            SELECT id, imagenPrincipal, imagen2, imagen3 FROM productos 
+            SELECT * FROM productos 
             WHERE id = ?
             LIMIT 1
         `, [id]);
@@ -526,6 +534,7 @@ const updateProducto = async (req, res) => {
         // Verificar si se encontró el producto
         if (productos.length === 0) {
             await connection.rollback();
+            connection.release();
             return res.status(404).json({
                 ok: false,
                 msg: `No se encontró el producto con ID: ${id}`
@@ -534,91 +543,99 @@ const updateProducto = async (req, res) => {
 
         const productoActual = productos[0];
 
-        // 2. Verificar si la sección existe
-        const [secciones] = await connection.execute(`
-            SELECT id, nombre FROM secciones 
-            WHERE id = ?
-            LIMIT 1
-        `, [idSeccion]);
+        // 2. Verificar si la sección existe (solo si se proporcionó una nueva sección)
+        if (idSeccion) {
+            const [secciones] = await connection.execute(`
+                SELECT id, nombre FROM secciones 
+                WHERE id = ?
+                LIMIT 1
+            `, [idSeccion]);
 
-        // Verificar si se encontró la sección
-        if (secciones.length === 0) {
-            await connection.rollback();
-            return res.status(404).json({
-                ok: false,
-                msg: `No se encontró la sección con ID: ${idSeccion}`
-            });
+            // Verificar si se encontró la sección
+            if (secciones.length === 0) {
+                await connection.rollback();
+                connection.release();
+                return res.status(404).json({
+                    ok: false,
+                    msg: `No se encontró la sección con ID: ${idSeccion}`
+                });
+            }
         }
 
-        // 3. Gestionar las imágenes
-        let nombreImagenPrincipal = productoActual.imagenPrincipal;
-        let nombreImagen2 = productoActual.imagen2;
-        let nombreImagen3 = productoActual.imagen3;
-
-        // Si se proporciona una nueva imagen, eliminar la antigua y guardar la nueva
-        if (imagenPrincipal && imagenPrincipal.startsWith('data:')) {
-            // Eliminar imagen antigua si existe
-            if (productoActual.imagenPrincipal) {
-                await eliminarImagen(productoActual.imagenPrincipal);
+        // Generar slug si el nombre ha cambiado
+        let nuevoSlug = productoActual.slug;
+        if (nombre && nombre !== productoActual.nombre) {
+            nuevoSlug = slugRequest || nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '');
+            
+            // 3. Verificar si el nuevo slug ya existe en otro producto
+            const [slugExistente] = await connection.execute(`
+                SELECT id FROM productos 
+                WHERE slug = ? AND id != ?
+                LIMIT 1
+            `, [nuevoSlug, id]);
+            
+            if (slugExistente.length > 0) {
+                await connection.rollback();
+                connection.release();
+                return res.status(400).json({
+                    ok: false,
+                    msg: `Ya existe un producto con el slug: ${nuevoSlug}`
+                });
             }
-            // Guardar nueva imagen
-            const timestamp = Date.now();
-            nombreImagenPrincipal = `producto_principal_${timestamp}.jpg`;
-            await guardarImagen(imagenPrincipal, nombreImagenPrincipal);
-        } else if (imagenPrincipal === null) {
-            // Si se envió null explícitamente, eliminar la imagen
-            if (productoActual.imagenPrincipal) {
-                await eliminarImagen(productoActual.imagenPrincipal);
-            }
-            nombreImagenPrincipal = null;
         }
 
-        // Repetir para imagen2
-        if (imagen2 && imagen2.startsWith('data:')) {
-            if (productoActual.imagen2) {
-                await eliminarImagen(productoActual.imagen2);
-            }
-            const timestamp = Date.now() + 1;
-            nombreImagen2 = `producto_imagen2_${timestamp}.jpg`;
-            await guardarImagen(imagen2, nombreImagen2);
-        } else if (imagen2 === null) {
-            if (productoActual.imagen2) {
-                await eliminarImagen(productoActual.imagen2);
-            }
-            nombreImagen2 = null;
+        // 4. Preparar los campos a actualizar
+        const camposActualizados = {
+            nombre: nombre !== undefined ? nombre : productoActual.nombre,
+            descripcion: descripcion !== undefined ? descripcion : productoActual.descripcion,
+            id_seccion: idSeccion !== undefined ? idSeccion : productoActual.id_seccion,
+            es_destacado: destacado !== undefined ? (destacado ? 1 : 0) : productoActual.es_destacado,
+            es_nuevo: nuevo !== undefined ? (nuevo ? 1 : 0) : productoActual.es_nuevo,
+            activo: visible !== undefined ? (visible ? 1 : 0) : productoActual.activo,
+            slug: nuevoSlug,
+            imagen_principal: productoActual.imagen_principal,
+            imagen_extra1: productoActual.imagen_extra1,
+            imagen_extra2: productoActual.imagen_extra2,
+        };
+
+        // 5. Gestionar las imágenes si se proporcionaron nuevas
+        if (imagen_principal !== undefined) {
+            camposActualizados.imagen_principal = imagen_principal;
         }
 
-        // Repetir para imagen3
-        if (imagen3 && imagen3.startsWith('data:')) {
-            if (productoActual.imagen3) {
-                await eliminarImagen(productoActual.imagen3);
-            }
-            const timestamp = Date.now() + 2;
-            nombreImagen3 = `producto_imagen3_${timestamp}.jpg`;
-            await guardarImagen(imagen3, nombreImagen3);
-        } else if (imagen3 === null) {
-            if (productoActual.imagen3) {
-                await eliminarImagen(productoActual.imagen3);
-            }
-            nombreImagen3 = null;
+        if (imagen_extra1 !== undefined) {
+            camposActualizados.imagen_extra1 = imagen_extra1;
         }
 
-        // 4. Actualizar el producto
+        if (imagen_extra2 !== undefined) {
+            camposActualizados.imagen_extra2 = imagen_extra2;
+        }
+
+        // 6. Actualizar el producto
         await connection.execute(`
             UPDATE productos
-            SET nombre = ?, descripcion = ?, idSeccion = ?, destacado = ?, nuevo = ?, visible = ?, 
-                imagenPrincipal = ?, imagen2 = ?, imagen3 = ?, updatedAt = NOW()
+            SET nombre = ?, 
+                descripcion = ?, 
+                id_seccion = ?, 
+                es_destacado = ?, 
+                es_nuevo = ?, 
+                activo = ?, 
+                slug = ?,
+                imagen_principal = ?, 
+                imagen_extra1 = ?, 
+                imagen_extra2 = ?
             WHERE id = ?
         `, [
-            nombre, 
-            descripcion, 
-            idSeccion, 
-            destacado ? 1 : 0, 
-            nuevo ? 1 : 0, 
-            visible ? 1 : 0, 
-            nombreImagenPrincipal, 
-            nombreImagen2, 
-            nombreImagen3, 
+            camposActualizados.nombre, 
+            camposActualizados.descripcion, 
+            camposActualizados.id_seccion, 
+            camposActualizados.es_destacado, 
+            camposActualizados.es_nuevo, 
+            camposActualizados.activo, 
+            camposActualizados.slug,
+            camposActualizados.imagen_principal, 
+            camposActualizados.imagen_extra1, 
+            camposActualizados.imagen_extra2, 
             id
         ]);
 
@@ -630,32 +647,34 @@ const updateProducto = async (req, res) => {
             SELECT 
                 p.id, 
                 p.nombre, 
+                p.slug,
                 p.descripcion, 
-                p.destacado, 
-                p.nuevo, 
-                p.visible,
-                p.imagenPrincipal,
-                p.imagen2,
-                p.imagen3,
-                p.createdAt,
-                p.updatedAt,
+                p.es_destacado as destacado, 
+                p.es_nuevo as nuevo, 
+                p.activo as visible,
+                p.imagen_principal as imagenPrincipal,
+                p.imagen_extra1 as imagen2,
+                p.imagen_extra2 as imagen3,
                 s.id as idSeccion, 
                 s.nombre as seccionNombre,
                 c.id as idCategoria,
                 c.nombre as categoriaNombre
             FROM productos p
-            JOIN secciones s ON p.idSeccion = s.id
+            JOIN secciones s ON p.id_seccion = s.id
             JOIN categorias_secciones cs ON s.id = cs.idSeccion
             JOIN categorias c ON cs.idCategoria = c.id
             WHERE p.id = ?
         `, [id]);
 
-        // Procesar las imágenes para incluir URLs completas
+        // CORRECCIÓN: No modificar las URLs de Cloudinary
+        // Si las imágenes ya están almacenadas como URLs completas, 
+        // simplemente pasarlas sin concatenar ninguna ruta base
         const productoConImagenes = {
             ...productoActualizado[0],
-            imagenPrincipal: productoActualizado[0].imagenPrincipal ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagenPrincipal}` : null,
-            imagen2: productoActualizado[0].imagen2 ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagen2}` : null,
-            imagen3: productoActualizado[0].imagen3 ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagen3}` : null
+            // No concatenamos rutas si ya son URLs completas
+            imagenPrincipal: productoActualizado[0].imagenPrincipal || null,
+            imagen2: productoActualizado[0].imagen2 || null,
+            imagen3: productoActualizado[0].imagen3 || null
         };
 
         res.json({
@@ -675,7 +694,6 @@ const updateProducto = async (req, res) => {
         connection.release();
     }
 };
-
 // Eliminar un producto
 const deleteProducto = async (req, res) => {
     const { id } = req.params;
@@ -761,7 +779,7 @@ const toggleVisibilidadProducto = async (req, res) => {
         
         // 2. Actualizar la visibilidad
         await pool.execute(`
-            UPDATE productos SET visible = ?, updatedAt = NOW() WHERE id = ?
+            UPDATE productos SET visible = ? WHERE id = ?
         `, [visible ? 1 : 0, id]);
         
         // 3. Obtener el producto actualizado
@@ -776,8 +794,8 @@ const toggleVisibilidadProducto = async (req, res) => {
                 p.imagenPrincipal,
                 p.imagen2,
                 p.imagen3,
-                p.createdAt,
-                p.updatedAt,
+              
+               
                 s.id as idSeccion, 
                 s.nombre as seccionNombre,
                 c.id as idCategoria,
@@ -831,7 +849,7 @@ const toggleDestacadoProducto = async (req, res) => {
         
         // 2. Actualizar el estado destacado
         await pool.execute(`
-            UPDATE productos SET destacado = ?, updatedAt = NOW() WHERE id = ?
+            UPDATE productos SET destacado = ? WHERE id = ?
         `, [destacado ? 1 : 0, id]);
         
         // 3. Obtener el producto actualizado
@@ -846,8 +864,7 @@ const toggleDestacadoProducto = async (req, res) => {
                 p.imagenPrincipal,
                 p.imagen2,
                 p.imagen3,
-                p.createdAt,
-                p.updatedAt,
+               
                 s.id as idSeccion, 
                 s.nombre as seccionNombre,
                 c.id as idCategoria,
@@ -901,7 +918,7 @@ const toggleNuevoProducto = async (req, res) => {
         
         // 2. Actualizar el estado nuevo
         await pool.execute(`
-            UPDATE productos SET nuevo = ?, updatedAt = NOW() WHERE id = ?
+            UPDATE productos SET nuevo = ? WHERE id = ?
         `, [nuevo ? 1 : 0, id]);
         
         // 3. Obtener el producto actualizado
@@ -916,8 +933,6 @@ const toggleNuevoProducto = async (req, res) => {
                 p.imagenPrincipal,
                 p.imagen2,
                 p.imagen3,
-                p.createdAt,
-                p.updatedAt,
                 s.id as idSeccion, 
                 s.nombre as seccionNombre,
                 c.id as idCategoria,

@@ -381,10 +381,13 @@ const createProducto = async (req, res) => {
     // Generar slug único si no se proporciona
     const slugFinal = slug || nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '');
     
-    // Iniciar una transacción
-    const connection = await pool.getConnection();
+    let connection;
     
     try {
+        // Obtener conexión del pool
+        connection = await pool.getConnection();
+        
+        // Iniciar transacción
         await connection.beginTransaction();
 
         // 1. Verificar si la sección existe
@@ -397,6 +400,7 @@ const createProducto = async (req, res) => {
         // Verificar si se encontró la sección
         if (secciones.length === 0) {
             await connection.rollback();
+            connection.release();
             return res.status(404).json({
                 ok: false,
                 msg: `No se encontró la sección con ID: ${idSeccion}`
@@ -410,6 +414,7 @@ const createProducto = async (req, res) => {
 
         if (productosExistentes.length > 0) {
             await connection.rollback();
+            connection.release();
             return res.status(400).json({
                 ok: false,
                 msg: `Ya existe un producto con el slug: ${slugFinal}`
@@ -426,8 +431,12 @@ const createProducto = async (req, res) => {
 
         // Confirmar la transacción
         await connection.commit();
+        
+        // Liberar la conexión antes de hacer otras operaciones
+        connection.release();
+        connection = null;
 
-        // Obtener los datos completos del producto creado
+        // Obtener los datos completos del producto creado (usar el pool general, no la conexión)
         const [producto] = await pool.execute(`
             SELECT 
                 p.id, 
@@ -464,16 +473,30 @@ const createProducto = async (req, res) => {
             producto: productoConImagenes
         });
     } catch (error) {
-        // Revertir la transacción en caso de error
-        await connection.rollback();
         console.error('Error al crear producto:', error);
+        
+        // Revertir la transacción en caso de error solo si la conexión sigue abierta
+        if (connection) {
+            try {
+                await connection.rollback();
+            } catch (rollbackError) {
+                console.error('Error al hacer rollback:', rollbackError);
+            }
+        }
+        
         res.status(500).json({ 
             ok: false,
             msg: 'Error interno del servidor' 
         });
     } finally {
-        // Siempre liberar la conexión
-        connection.release();
+        // Liberar la conexión si aún está abierta
+        if (connection) {
+            try {
+                connection.release();
+            } catch (releaseError) {
+                console.error('Error al liberar la conexión:', releaseError);
+            }
+        }
     }
 };
 // Actualizar un producto

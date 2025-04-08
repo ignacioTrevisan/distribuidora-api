@@ -21,6 +21,7 @@ app.use(express.json());
 app.use('/api/categories', require('./routes/categorias'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/sections', require('./routes/secciones'));
+app.use('/api/products', require('./routes/productos'));
 app.use('/api/cantidadInicial', require('./routes/cantidadInicial'));
 
 

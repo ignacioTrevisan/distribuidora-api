@@ -14,7 +14,7 @@ const pool = mysql.createPool({
 // Obtener todos los productos
 const getProductos = async (req, res) => {
     try {
-        // Determinar si mostrar todos los productos o solo visibles
+        // Determinar si mostrar todos los productos o solo activos
         const mostrarTodos = req.query.todos === 'true' ? true : false
         
         let query = `
@@ -25,7 +25,7 @@ const getProductos = async (req, res) => {
                 p.descripcion, 
                 p.es_destacado as destacado, 
                 p.es_nuevo as nuevo, 
-                p.activo as visible,
+                p.activo as activo,
                 p.imagen_principal,
                 p.imagen_extra1 as imagen2,
                 p.imagen_extra2 as imagen3,
@@ -39,7 +39,7 @@ const getProductos = async (req, res) => {
             JOIN categorias c ON cs.idCategoria = c.id
         `;
         
-        // Si no es admin o no solicitó todos, mostrar solo productos visibles
+        // Si no es admin o no solicitó todos, mostrar solo productos activos
         if (!mostrarTodos) {
             query += ' WHERE p.activo = 1 AND s.activo = 1 AND c.activo = 1';
         }
@@ -97,7 +97,7 @@ const getProductoById = async (req, res) => {
                 p.descripcion, 
                 p.es_destacado as destacado, 
                 p.es_nuevo as nuevo, 
-                p.activo as visible,
+                p.activo as activo,
                 p.imagen_principal as imagenPrincipal,
                 p.imagen_extra1 as imagen2,
                 p.imagen_extra2 as imagen3,
@@ -146,39 +146,30 @@ const getProductosDestacados = async (req, res) => {
             SELECT 
                 p.id, 
                 p.nombre, 
+                p.slug,
                 p.descripcion, 
-                p.destacado, 
-                p.nuevo, 
-                p.visible,
-                p.imagenPrincipal,
-                p.imagen2,
-                p.imagen3,
+                p.es_destacado as destacado, 
+                p.es_nuevo as nuevo, 
+                p.activo as visible,
+                p.imagen_principal as imagenPrincipal,
+                p.imagen_extra1 as imagen2,
+                p.imagen_extra2 as imagen3,
                 s.id as idSeccion, 
                 s.nombre as seccionNombre,
                 c.id as idCategoria,
                 c.nombre as categoriaNombre
             FROM productos p
-            JOIN secciones s ON p.idSeccion = s.id
+            JOIN secciones s ON p.id_seccion = s.id
             JOIN categorias_secciones cs ON s.id = cs.idSeccion
             JOIN categorias c ON cs.idCategoria = c.id
-            WHERE p.destacado = 1 AND p.visible = 1 AND s.activo = 1 AND c.activo = 1
-            ORDER BY p.updatedAt DESC
+            WHERE p.es_destacado = 1 AND p.activo = 1 AND s.activo = 1 AND c.activo = 1
+            ORDER BY p.id DESC
         `);
-        
-        // Procesar las imágenes para incluir URLs completas
-        const productosConImagenes = productos.map(producto => {
-            return {
-                ...producto,
-                imagenPrincipal: producto.imagenPrincipal ? `${process.env.BASE_URL}/uploads/productos/${producto.imagenPrincipal}` : null,
-                imagen2: producto.imagen2 ? `${process.env.BASE_URL}/uploads/productos/${producto.imagen2}` : null,
-                imagen3: producto.imagen3 ? `${process.env.BASE_URL}/uploads/productos/${producto.imagen3}` : null
-            };
-        });
 
         res.json({
             ok: true,
-            total: productosConImagenes.length,
-            productos: productosConImagenes
+            total: productos.length,
+            productos
         });
     } catch (error) {
         console.error('Error al obtener productos destacados:', error);
@@ -188,6 +179,7 @@ const getProductosDestacados = async (req, res) => {
         });
     }
 };
+
 
 // Obtener productos nuevos
 const getProductosNuevos = async (req, res) => {
@@ -199,7 +191,7 @@ const getProductosNuevos = async (req, res) => {
                 p.descripcion, 
                 p.destacado, 
                 p.nuevo, 
-                p.visible,
+                p.activo,
                 p.imagenPrincipal,
                 p.imagen2,
                 p.imagen3,
@@ -211,7 +203,7 @@ const getProductosNuevos = async (req, res) => {
             JOIN secciones s ON p.idSeccion = s.id
             JOIN categorias_secciones cs ON s.id = cs.idSeccion
             JOIN categorias c ON cs.idCategoria = c.id
-            WHERE p.nuevo = 1 AND p.visible = 1 AND s.activo = 1 AND c.activo = 1
+            WHERE p.nuevo = 1 AND p.activo = 1 AND s.activo = 1 AND c.activo = 1
             ORDER BY p.createdAt DESC
         `);
         
@@ -292,7 +284,7 @@ const getProductosBySeccion = async (req, res) => {
             WHERE p.id_seccion = ?
         `;
         
-        // Si no es admin, mostrar solo productos visibles
+        // Si no es admin, mostrar solo productos activos
         if (!esAdmin) {
             query += ' AND p.activo = 1';
         }
@@ -529,7 +521,7 @@ const createProducto = async (req, res) => {
         });
     }
 
-    const { nombre, descripcion, slug, imagen_principal, imagen_extra1, imagen_extra2, idSeccion, destacado = false, nuevo = false, visible = true } = req.body;
+    const { nombre, descripcion, slug, imagen_principal, imagen_extra1, imagen_extra2, idSeccion, destacado = false, nuevo = false, activo = true } = req.body;
   
     // Generar slug único si no se proporciona
     const slugFinal = slug || nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '');
@@ -578,7 +570,7 @@ const createProducto = async (req, res) => {
         const [result] = await connection.execute(`
             INSERT INTO productos (nombre, slug, descripcion, id_seccion, es_destacado, es_nuevo, activo, imagen_principal, imagen_extra1, imagen_extra2)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [nombre, slugFinal, descripcion, idSeccion, destacado ? 1 : 0, nuevo ? 1 : 0, visible ? 1 : 0, imagen_principal, imagen_extra1, imagen_extra2]);
+        `, [nombre, slugFinal, descripcion, idSeccion, destacado ? 1 : 0, nuevo ? 1 : 0, activo ? 1 : 0, imagen_principal, imagen_extra1, imagen_extra2]);
 
         const productoId = result.insertId;
 
@@ -598,7 +590,7 @@ const createProducto = async (req, res) => {
                 p.descripcion, 
                 p.es_destacado as destacado, 
                 p.es_nuevo as nuevo, 
-                p.activo as visible,
+                p.activo as activo,
                 p.imagen_principal as imagenPrincipal,
                 p.imagen_extra1 as imagen2,
                 p.imagen_extra2 as imagen3,
@@ -670,7 +662,7 @@ const updateProducto = async (req, res) => {
         idSeccion, 
         destacado, 
         nuevo, 
-        visible, 
+        activo, 
         imagen_principal, 
         imagen_extra1, 
         imagen_extra2, 
@@ -750,7 +742,7 @@ const updateProducto = async (req, res) => {
             id_seccion: idSeccion !== undefined ? idSeccion : productoActual.id_seccion,
             es_destacado: destacado !== undefined ? (destacado ? 1 : 0) : productoActual.es_destacado,
             es_nuevo: nuevo !== undefined ? (nuevo ? 1 : 0) : productoActual.es_nuevo,
-            activo: visible !== undefined ? (visible ? 1 : 0) : productoActual.activo,
+            activo: activo !== undefined ? (activo ? 1 : 0) : productoActual.activo,
             slug: nuevoSlug,
             imagen_principal: productoActual.imagen_principal,
             imagen_extra1: productoActual.imagen_extra1,
@@ -810,7 +802,7 @@ const updateProducto = async (req, res) => {
                 p.descripcion, 
                 p.es_destacado as destacado, 
                 p.es_nuevo as nuevo, 
-                p.activo as visible,
+                p.activo as activo,
                 p.imagen_principal as imagenPrincipal,
                 p.imagen_extra1 as imagen2,
                 p.imagen_extra2 as imagen3,
@@ -921,12 +913,12 @@ const deleteProducto = async (req, res) => {
 // Toggle de visibilidad del producto
 const toggleVisibilidadProducto = async (req, res) => {
     const { id } = req.params;
-    const { visible } = req.body;
+    const { activo } = req.body;
     
     try {
         // 1. Verificar si el producto existe
         const [productos] = await pool.execute(`
-            SELECT id, visible FROM productos WHERE id = ? LIMIT 1
+            SELECT id, activo FROM productos WHERE id = ? LIMIT 1
         `, [id]);
         
         if (productos.length === 0) {
@@ -938,8 +930,8 @@ const toggleVisibilidadProducto = async (req, res) => {
         
         // 2. Actualizar la visibilidad
         await pool.execute(`
-            UPDATE productos SET visible = ? WHERE id = ?
-        `, [visible ? 1 : 0, id]);
+            UPDATE productos SET activo = ? WHERE id = ?
+        `, [activo ? 1 : 0, id]);
         
         // 3. Obtener el producto actualizado
         const [productoActualizado] = await pool.execute(`
@@ -949,7 +941,7 @@ const toggleVisibilidadProducto = async (req, res) => {
                 p.descripcion, 
                 p.destacado, 
                 p.nuevo, 
-                p.visible,
+                p.activo,
                 p.imagenPrincipal,
                 p.imagen2,
                 p.imagen3,
@@ -976,7 +968,7 @@ const toggleVisibilidadProducto = async (req, res) => {
         
         res.json({
             ok: true,
-            msg: `Producto ${visible ? 'visible' : 'oculto'} correctamente`,
+            msg: `Producto ${activo ? 'activo' : 'oculto'} correctamente`,
             producto: productoConImagenes
         });
     } catch (error) {
@@ -1019,7 +1011,7 @@ const toggleDestacadoProducto = async (req, res) => {
                 p.descripcion, 
                 p.destacado, 
                 p.nuevo, 
-                p.visible,
+                p.activo,
                 p.imagenPrincipal,
                 p.imagen2,
                 p.imagen3,
@@ -1088,7 +1080,7 @@ const toggleNuevoProducto = async (req, res) => {
                 p.descripcion, 
                 p.destacado, 
                 p.nuevo, 
-                p.visible,
+                p.activo,
                 p.imagenPrincipal,
                 p.imagen2,
                 p.imagen3,

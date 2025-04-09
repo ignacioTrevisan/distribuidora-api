@@ -66,7 +66,24 @@ const getProductos = async (req, res) => {
     }
 };
 
-
+const getProductsSlugActive =async(req,res)=>{
+    try {
+const [lista] = await pool.execute(`
+  SELECT p.slug 
+  FROM productos p
+  JOIN secciones s ON p.id_seccion = s.id
+  WHERE p.activo = 1 AND s.activo = 1
+`);        return res.status(200).json({
+            ok:true,
+            data: lista
+        })
+    } catch (error) {
+        return res.status(500).json({
+            ok:false,
+            msg:error
+        })
+    }
+}
 
 // Obtener un producto por ID
 const getProductoById = async (req, res) => {
@@ -78,38 +95,36 @@ const getProductoById = async (req, res) => {
                 p.id, 
                 p.nombre, 
                 p.descripcion, 
-                p.destacado, 
-                p.nuevo, 
-                p.visible,
-                p.imagenPrincipal,
-                p.imagen2,
-                p.imagen3,
-                p.createdAt,
-                p.updatedAt,
+                p.es_destacado as destacado, 
+                p.es_nuevo as nuevo, 
+                p.activo as visible,
+                p.imagen_principal as imagenPrincipal,
+                p.imagen_extra1 as imagen2,
+                p.imagen_extra2 as imagen3,
                 s.id as idSeccion, 
                 s.nombre as seccionNombre,
                 c.id as idCategoria,
                 c.nombre as categoriaNombre
             FROM productos p
-            JOIN secciones s ON p.idSeccion = s.id
+            JOIN secciones s ON p.id_seccion = s.id
             JOIN categorias_secciones cs ON s.id = cs.idSeccion
             JOIN categorias c ON cs.idCategoria = c.id
-            WHERE p.id = ?
+            WHERE p.slug = ? AND p.activo = 1 AND s.activo = 1
         `, [id]);
         
         if (productos.length === 0) {
             return res.status(404).json({
                 ok: false,
-                msg: 'Producto no encontrado'
+                msg: 'Producto no encontrado o no disponible'
             });
         }
         
-        // Procesar las imágenes para incluir URLs completas
+        // No modificamos las URLs de las imágenes ya que vienen como URLs completas de Cloudinary
         const producto = {
             ...productos[0],
-            imagenPrincipal: productos[0].imagenPrincipal ? `${process.env.BASE_URL}/uploads/productos/${productos[0].imagenPrincipal}` : null,
-            imagen2: productos[0].imagen2 ? `${process.env.BASE_URL}/uploads/productos/${productos[0].imagen2}` : null,
-            imagen3: productos[0].imagen3 ? `${process.env.BASE_URL}/uploads/productos/${productos[0].imagen3}` : null
+            imagenPrincipal: productos[0].imagenPrincipal || null,
+            imagen2: productos[0].imagen2 || null,
+            imagen3: productos[0].imagen3 || null
         };
 
         res.json({
@@ -124,7 +139,6 @@ const getProductoById = async (req, res) => {
         });
     }
 };
-
 // Obtener productos destacados
 const getProductosDestacados = async (req, res) => {
     try {
@@ -226,6 +240,7 @@ const getProductosNuevos = async (req, res) => {
 };
 
 // Obtener productos por sección
+// Obtener productos por sección
 const getProductosBySeccion = async (req, res) => {
     try {
         const { idSeccion } = req.params;
@@ -257,43 +272,34 @@ const getProductosBySeccion = async (req, res) => {
             SELECT 
                 p.id, 
                 p.nombre, 
+                p.slug,
                 p.descripcion, 
-                p.destacado, 
-                p.nuevo, 
-                p.visible,
-                p.imagenPrincipal,
-                p.imagen2,
-                p.imagen3,
+                p.es_destacado as destacado, 
+                p.es_nuevo as nuevo, 
+                p.activo,
+                p.imagen_principal as imagenPrincipal,
+                p.imagen_principal as imagenPrincipal,
+                p.imagen_extra1 as imagen2,
+                p.imagen_extra2 as imagen3,
                 s.id as idSeccion, 
                 s.nombre as seccionNombre,
                 c.id as idCategoria,
                 c.nombre as categoriaNombre
             FROM productos p
-            JOIN secciones s ON p.idSeccion = s.id
+            JOIN secciones s ON p.id_seccion = s.id
             JOIN categorias_secciones cs ON s.id = cs.idSeccion
             JOIN categorias c ON cs.idCategoria = c.id
-            WHERE p.idSeccion = ?
+            WHERE p.id_seccion = ?
         `;
         
         // Si no es admin, mostrar solo productos visibles
         if (!esAdmin) {
-            query += ' AND p.visible = 1';
+            query += ' AND p.activo = 1';
         }
-        
-        query += ' ORDER BY p.createdAt DESC';
         
         const [productos] = await pool.execute(query, [idSeccion]);
         
-        // Procesar las imágenes para incluir URLs completas
-        const productosConImagenes = productos.map(producto => {
-            return {
-                ...producto,
-                imagenPrincipal: producto.imagenPrincipal ? `${process.env.BASE_URL}/uploads/productos/${producto.imagenPrincipal}` : null,
-                imagen2: producto.imagen2 ? `${process.env.BASE_URL}/uploads/productos/${producto.imagen2}` : null,
-                imagen3: producto.imagen3 ? `${process.env.BASE_URL}/uploads/productos/${producto.imagen3}` : null
-            };
-        });
-
+        // Simplemente pasar los productos sin modificar las URLs
         res.json({
             ok: true,
             seccion: {
@@ -301,8 +307,8 @@ const getProductosBySeccion = async (req, res) => {
                 nombre: secciones[0].nombre,
                 activo: secciones[0].activo === 1
             },
-            total: productosConImagenes.length,
-            productos: productosConImagenes
+            total: productos.length,
+            productos: productos
         });
     } catch (error) {
         console.error('Error al obtener productos por sección:', error);
@@ -313,6 +319,159 @@ const getProductosBySeccion = async (req, res) => {
     }
 };
 
+
+const getProductosByCategoria = async (req, res) => {
+    try {
+        const { idCategoria } = req.params;
+        
+        // Verificar si la categoría existe y está activa
+        const [categorias] = await pool.execute(`
+            SELECT id, nombre, activo FROM categorias WHERE id = ?
+        `, [idCategoria]);
+        
+        if (categorias.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                msg: 'Categoría no encontrada'
+            });
+        }
+        
+        // Solo mostrar los productos si la categoría está activa
+        const categoriaActiva = categorias[0].activo === 1;
+        
+        if (!categoriaActiva) {
+            return res.status(404).json({
+                ok: false,
+                msg: 'Categoría no disponible'
+            });
+        }
+        
+        // Obtener las secciones relacionadas con esta categoría que estén activas
+        const querySeccionesRelacionadas = `
+            SELECT s.id 
+            FROM secciones s
+            JOIN categorias_secciones cs ON s.id = cs.idSeccion
+            WHERE cs.idCategoria = ? AND s.activo = 1
+        `;
+        
+        const [seccionesRelacionadas] = await pool.execute(querySeccionesRelacionadas, [idCategoria]);
+        
+        if (seccionesRelacionadas.length === 0) {
+            return res.json({
+                ok: true,
+                categoria: {
+                    id: categorias[0].id,
+                    nombre: categorias[0].nombre,
+                    activo: categorias[0].activo === 1
+                },
+                total: 0,
+                productos: []
+            });
+        }
+        
+        // Extraer los IDs de las secciones relacionadas
+        const idsSeccion = seccionesRelacionadas.map(seccion => seccion.id);
+        
+        // Construir el query para obtener productos
+        let queryProductos;
+        let paramsProductos;
+        
+        if (idsSeccion.length === 1) {
+            // Si solo hay una sección, usamos = en lugar de IN
+            queryProductos = `
+                SELECT 
+                    p.id, 
+                    p.nombre, 
+                    p.slug,
+                    p.descripcion, 
+                    p.es_destacado as destacado, 
+                    p.es_nuevo as nuevo, 
+                    p.activo,
+                    p.imagen_principal as imagenPrincipal,
+                    p.imagen_extra1 as imagen2,
+                    p.imagen_extra2 as imagen3,
+                    s.id as idSeccion, 
+                    s.nombre as seccionNombre,
+                    c.id as idCategoria,
+                    c.nombre as categoriaNombre
+                FROM productos p
+                JOIN secciones s ON p.id_seccion = s.id
+                JOIN categorias_secciones cs ON s.id = cs.idSeccion
+                JOIN categorias c ON cs.idCategoria = c.id
+                WHERE p.id_seccion = ? AND c.id = ? AND p.activo = 1
+            `;
+            paramsProductos = [idsSeccion[0], idCategoria];
+        } else {
+            // Si hay múltiples secciones, usamos IN con paréntesis
+            queryProductos = `
+                SELECT 
+                    p.id, 
+                    p.nombre, 
+                    p.slug,
+                    p.descripcion, 
+                    p.es_destacado as destacado, 
+                    p.es_nuevo as nuevo, 
+                    p.activo,
+                    p.imagen_principal as imagenPrincipal,
+                    p.imagen_extra1 as imagen2,
+                    p.imagen_extra2 as imagen3,
+                    s.id as idSeccion, 
+                    s.nombre as seccionNombre,
+                    c.id as idCategoria,
+                    c.nombre as categoriaNombre
+                FROM productos p
+                JOIN secciones s ON p.id_seccion = s.id
+                JOIN categorias_secciones cs ON s.id = cs.idSeccion
+                JOIN categorias c ON cs.idCategoria = c.id
+                WHERE p.id_seccion IN (${idsSeccion.map(() => '?').join(',')}) 
+                AND c.id = ? AND p.activo = 1
+            `;
+            paramsProductos = [...idsSeccion, idCategoria];
+        }
+        
+        const [productos] = await pool.execute(queryProductos, paramsProductos);
+        
+        // Procesar las imágenes para incluir URLs completas
+        const productosConImagenes = productos.map(producto => {
+    // Función para manejar las URLs de las imágenes
+    const formatImageUrl = (imageUrl) => {
+        if (!imageUrl) return null;
+        
+        // Si la URL ya comienza con http o https, usarla directamente
+        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            return imageUrl;
+        }
+        
+        // Si no, construir la URL completa
+        return `${process.env.BASE_URL}/uploads/productos/${imageUrl}`;
+    };
+    
+    return {
+        ...producto,
+        imagenPrincipal: formatImageUrl(producto.imagenPrincipal),
+        imagen2: formatImageUrl(producto.imagen2),
+        imagen3: formatImageUrl(producto.imagen3)
+    };
+});
+        
+        res.json({
+            ok: true,
+            categoria: {
+                id: categorias[0].id,
+                nombre: categorias[0].nombre,
+                activo: categorias[0].activo === 1
+            },
+            total: productosConImagenes.length,
+            productos: productosConImagenes
+        });
+    } catch (error) {
+        console.error('Error al obtener productos por categoría:', error);
+        res.status(500).json({
+            ok: false,
+            msg: 'Error interno del servidor'
+        });
+    }
+};
 // Función auxiliar para guardar imágenes
 const guardarImagen = async (imagen, nombreArchivo) => {
     if (!imagen) return null;
@@ -972,11 +1131,13 @@ module.exports = {
     getProductoById,
     createProducto,
     updateProducto,
+    getProductsSlugActive,
     deleteProducto,
     toggleVisibilidadProducto,
     toggleDestacadoProducto,
     toggleNuevoProducto,
     getProductosDestacados,
     getProductosNuevos,
-    getProductosBySeccion
+    getProductosBySeccion,
+    getProductosByCategoria
 };

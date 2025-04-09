@@ -575,7 +575,16 @@ const deleteSeccion = async (req, res) => {
         });
     }
 };
-
+const getCategoryidByName =async(req,res)=>{
+    const name = req.params.name;
+     const [categorias] = await pool.execute(`
+            select id from categorias where nombre = ?
+        `,[name]);
+    res.status(200).json({
+        ok:true,
+        id: categorias[0].id
+    })
+}
 module.exports = {
     getAllCategories,
     getActiveCategories,
@@ -588,5 +597,6 @@ module.exports = {
     getAllSecciones,
     createSeccion,
     updateSeccion,
-    deleteSeccion
+    deleteSeccion,
+    getCategoryidByName
 };

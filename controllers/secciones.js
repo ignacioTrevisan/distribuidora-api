@@ -422,7 +422,16 @@ const toggleVisibilidadSeccion = async (req, res) => {
         });
     }
 };
-
+const getSectionIdByName =async(req,res)=>{
+    const name = req.params.name;
+     const [categorias] = await pool.execute(`
+            select id from secciones where nombre = ?
+        `,[name]);
+    res.status(200).json({
+        ok:true,
+        id:categorias[0].id
+    })
+}
 module.exports = {
     getSecciones,
     getSeccion,
@@ -431,5 +440,6 @@ module.exports = {
     deleteSeccion,
     asociarSeccionCategoria,
     toggleVisibilidadSeccion,
-    eliminarAsociacionSeccionCategoria
+    eliminarAsociacionSeccionCategoria,
+    getSectionIdByName
 };

@@ -11,7 +11,7 @@ const {
     createCategoria, 
     updateCategoria,
     updateCategoriaActivo,
-    deleteCategoria 
+    deleteCategoria ,getCategoryidByName
 } = require('../controllers/categories');
 
 const { validarJWT, validarAdmin } = require('../middlewares/validar-jwt');
@@ -20,6 +20,8 @@ const { validarJWT, validarAdmin } = require('../middlewares/validar-jwt');
 
 // Obtener todas las categorías con sus secciones (incluye inactivas)
 router.get('/', [], getAll);
+
+router.get('/getCategoryidByName/:name',[], getCategoryidByName)
 
 // Obtener solo categorías activas con sus secciones activas
 router.get('/active', [], getActiveOnly);

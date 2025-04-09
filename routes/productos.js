@@ -8,13 +8,15 @@ const {
     getProductoById,
     createProducto,
     updateProducto,
+    getProductsSlugActive,
     deleteProducto,
     toggleVisibilidadProducto,
     toggleDestacadoProducto,
     toggleNuevoProducto,
     getProductosDestacados,
     getProductosNuevos,
-    getProductosBySeccion
+    getProductosBySeccion,
+    getProductosByCategoria
 } = require('../controllers/productos');
 const { validarJWT, validarAdmin } = require('../middlewares/validar-jwt');
 const { validationResult } = require('express-validator');
@@ -35,6 +37,7 @@ const validarCampos = (req, res, next) => {
 // Obtener todos los productos (solo visibles para usuarios, todos para admin)
 router.get('/', getProductos);
 
+router.get('/slugs', getProductsSlugActive)
 // Obtener un producto por ID
 router.get('/:id', getProductoById);
 
@@ -45,7 +48,12 @@ router.get('/destacados/lista', getProductosDestacados);
 router.get('/nuevos/lista', getProductosNuevos);
 
 // Obtener productos por sección
-router.get('/seccion/:idSeccion', getProductosBySeccion);
+
+router.get('/bySection/:idSeccion',[],getProductosBySeccion)
+
+// Obtener productos por categoria
+
+router.get('/byCategoria/:idCategoria',[],getProductosByCategoria)
 
 // Rutas protegidas (requieren autenticación)
 // Crear un nuevo producto

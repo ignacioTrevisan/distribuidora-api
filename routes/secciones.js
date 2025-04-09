@@ -4,7 +4,7 @@ const { check } = require('express-validator');
 const { Router } = require('express');
 const router = Router();
 const { 
-    getSecciones,createSeccion,deleteSeccion,updateSeccion,toggleVisibilidadSeccion
+    getSecciones,createSeccion,deleteSeccion,updateSeccion,toggleVisibilidadSeccion,getSectionIdByName
 } = require('../controllers/secciones');
 
 const { validarJWT, validarAdmin } = require('../middlewares/validar-jwt');
@@ -27,7 +27,7 @@ router.post('/', [
 router.delete('/:id', [
     validarJWT], deleteSeccion);
 
-
+router.get('/getSectionIdByName/:name',[], getSectionIdByName)
 router.put('/:id', [
 validarJWT,
 check('nombre', 'El nombre es obligatorio').not().isEmpty(),

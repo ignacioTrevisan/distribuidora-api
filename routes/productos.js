@@ -97,7 +97,7 @@ router.delete('/:id', [
 // Toggles rápidos para cambiar estados
 router.put('/visibilidad/:id', [
     validarJWT,
-    check('visible', 'El campo visible debe ser un booleano').isBoolean(),
+    check('activo', 'El campo activo debe ser un booleano').isBoolean(),
     validarCampos
 ], toggleVisibilidadProducto);
 

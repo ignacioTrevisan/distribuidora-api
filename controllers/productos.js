@@ -25,7 +25,7 @@ const getProductos = async (req, res) => {
                 p.descripcion, 
                 p.es_destacado as destacado, 
                 p.es_nuevo as nuevo, 
-                p.activo as activo,
+                p.activo as visible,
                 p.imagen_principal,
                 p.imagen_extra1 as imagen2,
                 p.imagen_extra2 as imagen3,
@@ -185,35 +185,36 @@ const getProductosDestacados = async (req, res) => {
 const getProductosNuevos = async (req, res) => {
     try {
         const [productos] = await pool.execute(`
-            SELECT 
+           SELECT 
                 p.id, 
                 p.nombre, 
+                p.slug,
                 p.descripcion, 
-                p.destacado, 
-                p.nuevo, 
-                p.activo,
-                p.imagenPrincipal,
-                p.imagen2,
-                p.imagen3,
+                p.es_destacado as destacado, 
+                p.es_nuevo as nuevo, 
+                p.activo as visible,
+                p.imagen_principal as imagenPrincipal,
+                p.imagen_extra1 as imagen2,
+                p.imagen_extra2 as imagen3,
                 s.id as idSeccion, 
                 s.nombre as seccionNombre,
                 c.id as idCategoria,
                 c.nombre as categoriaNombre
             FROM productos p
-            JOIN secciones s ON p.idSeccion = s.id
+            JOIN secciones s ON p.id_seccion = s.id
             JOIN categorias_secciones cs ON s.id = cs.idSeccion
             JOIN categorias c ON cs.idCategoria = c.id
-            WHERE p.nuevo = 1 AND p.activo = 1 AND s.activo = 1 AND c.activo = 1
-            ORDER BY p.createdAt DESC
+            WHERE p.es_nuevo = 1 AND p.activo = 1 AND s.activo = 1 AND c.activo = 1
+            ORDER BY p.id DESC
         `);
         
         // Procesar las imágenes para incluir URLs completas
         const productosConImagenes = productos.map(producto => {
             return {
                 ...producto,
-                imagenPrincipal: producto.imagenPrincipal ? `${process.env.BASE_URL}/uploads/productos/${producto.imagenPrincipal}` : null,
-                imagen2: producto.imagen2 ? `${process.env.BASE_URL}/uploads/productos/${producto.imagen2}` : null,
-                imagen3: producto.imagen3 ? `${process.env.BASE_URL}/uploads/productos/${producto.imagen3}` : null
+                imagenPrincipal: producto.imagenPrincipal,
+                imagen2: producto.imagen2,
+                imagen3: producto.imagen3
             };
         });
 
@@ -939,20 +940,18 @@ const toggleVisibilidadProducto = async (req, res) => {
                 p.id, 
                 p.nombre, 
                 p.descripcion, 
-                p.destacado, 
-                p.nuevo, 
+                p.es_destacado as destacado, 
+                p.es_nuevo as nuevo, 
                 p.activo,
-                p.imagenPrincipal,
-                p.imagen2,
-                p.imagen3,
-              
-               
+                p.imagen_principal as imagenPrincipal,
+                p.imagen_extra1 as imagen2,
+                p.imagen_extra2 as imagen3,
                 s.id as idSeccion, 
                 s.nombre as seccionNombre,
                 c.id as idCategoria,
                 c.nombre as categoriaNombre
             FROM productos p
-            JOIN secciones s ON p.idSeccion = s.id
+            JOIN secciones s ON p.id_seccion = s.id
             JOIN categorias_secciones cs ON s.id = cs.idSeccion
             JOIN categorias c ON cs.idCategoria = c.id
             WHERE p.id = ?
@@ -961,9 +960,9 @@ const toggleVisibilidadProducto = async (req, res) => {
         // Procesar las imágenes para incluir URLs completas
         const productoConImagenes = {
             ...productoActualizado[0],
-            imagenPrincipal: productoActualizado[0].imagenPrincipal ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagenPrincipal}` : null,
-            imagen2: productoActualizado[0].imagen2 ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagen2}` : null,
-            imagen3: productoActualizado[0].imagen3 ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagen3}` : null
+            imagenPrincipal: imagenPrincipal, 
+            imagen2: imagen2, 
+            imagen3: imagen3, 
         };
         
         res.json({
@@ -1030,9 +1029,9 @@ const toggleDestacadoProducto = async (req, res) => {
         // Procesar las imágenes para incluir URLs completas
         const productoConImagenes = {
             ...productoActualizado[0],
-            imagenPrincipal: productoActualizado[0].imagenPrincipal ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagenPrincipal}` : null,
-            imagen2: productoActualizado[0].imagen2 ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagen2}` : null,
-            imagen3: productoActualizado[0].imagen3 ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagen3}` : null
+            imagenPrincipal:imagenPrincipal, 
+            imagen2:imagen2, 
+            imagen3:imagen3, 
         };
         
         res.json({
@@ -1098,9 +1097,9 @@ const toggleNuevoProducto = async (req, res) => {
         // Procesar las imágenes para incluir URLs completas
         const productoConImagenes = {
             ...productoActualizado[0],
-            imagenPrincipal: productoActualizado[0].imagenPrincipal ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagenPrincipal}` : null,
-            imagen2: productoActualizado[0].imagen2 ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagen2}` : null,
-            imagen3: productoActualizado[0].imagen3 ? `${process.env.BASE_URL}/uploads/productos/${productoActualizado[0].imagen3}` : null
+            imagenPrincipal:imagenPrincipal, 
+            imagen2:imagen2, 
+            imagen3:imagen3, 
         };
         
         res.json({

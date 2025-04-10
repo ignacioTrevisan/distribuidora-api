@@ -34,7 +34,7 @@ const getPortadas = async (req, res) => {
         
         res.json({
             ok: true,
-            portadas
+            portada: portadas
         });
     } catch (error) {
         console.error('Error al obtener portadas:', error);
@@ -168,6 +168,7 @@ const createPortada = async (req, res) => {
 };
 
 // Actualizar una portada
+// Actualizar una portada
 const updatePortada = async (req, res) => {
     // Validar campos
     const errors = validationResult(req);
@@ -179,7 +180,7 @@ const updatePortada = async (req, res) => {
     }
     
     const { id } = req.params;
-    const { url, titulo, descripcion, activo, idProducto = null } = req.body;
+    const { titulo, descripcion, activo, idProducto } = req.body;
     
     const connection = await pool.getConnection();
     
@@ -188,7 +189,7 @@ const updatePortada = async (req, res) => {
         
         // Verificar si la portada existe
         const [portadas] = await connection.execute(`
-            SELECT id, url FROM portadas WHERE id = ? LIMIT 1
+            SELECT * FROM portadas WHERE id = ? LIMIT 1
         `, [id]);
         
         if (portadas.length === 0) {
@@ -199,33 +200,81 @@ const updatePortada = async (req, res) => {
             });
         }
         
+        const portadaActual = portadas[0];
+        
         // Verificar si el producto existe (si se proporciona idProducto)
-        if (idProducto) {
-            const [productos] = await connection.execute(`
-                SELECT id FROM productos WHERE id = ? LIMIT 1
-            `, [idProducto]);
-            
-            if (productos.length === 0) {
-                await connection.rollback();
-                return res.status(404).json({
-                    ok: false,
-                    msg: `No se encontró el producto con ID: ${idProducto}`
-                });
+        if (idProducto !== undefined) {
+            // Si idProducto es null es válido, solo verificamos cuando es un ID
+            if (idProducto !== null) {
+                const [productos] = await connection.execute(`
+                    SELECT id FROM productos WHERE id = ? LIMIT 1
+                `, [idProducto]);
+                
+                if (productos.length === 0) {
+                    await connection.rollback();
+                    return res.status(404).json({
+                        ok: false,
+                        msg: `No se encontró el producto con ID: ${idProducto}`
+                    });
+                }
             }
         }
         
-        // Si la URL cambió, eliminar la imagen anterior
-        const portadaActual = portadas[0];
-        if (url !== portadaActual.url) {
-            await eliminarImagen(portadaActual.url);
+        // Construir la consulta dinámica para actualizar solo los campos proporcionados
+        let updateQuery = 'UPDATE portadas SET ';
+        const updateValues = [];
+        const updatedFields = {};
+        
+        if (titulo !== undefined) {
+            updateQuery += 'titulo = ?, ';
+            updateValues.push(titulo);
+            updatedFields.titulo = titulo;
+        } else {
+            updatedFields.titulo = portadaActual.titulo;
         }
         
-        // Actualizar la portada
-        await connection.execute(`
-            UPDATE portadas
-            SET url = ?, titulo = ?, descripcion = ?, activo = ?, idProducto = ?
-            WHERE id = ?
-        `, [url, titulo, descripcion, activo, idProducto, id]);
+        if (descripcion !== undefined) {
+            updateQuery += 'descripcion = ?, ';
+            updateValues.push(descripcion);
+            updatedFields.descripcion = descripcion;
+        } else {
+            updatedFields.descripcion = portadaActual.descripcion;
+        }
+        
+        if (activo !== undefined) {
+            updateQuery += 'activo = ?, ';
+            updateValues.push(activo);
+            updatedFields.activo = activo;
+        } else {
+            updatedFields.activo = portadaActual.activo;
+        }
+        
+        if (idProducto !== undefined) {
+            updateQuery += 'idProducto = ?, ';
+            updateValues.push(idProducto);
+            updatedFields.idProducto = idProducto;
+        } else {
+            updatedFields.idProducto = portadaActual.idProducto;
+        }
+        
+        // Eliminar la última coma
+        updateQuery = updateQuery.slice(0, -2);
+        
+        // Agregar la condición WHERE
+        updateQuery += ' WHERE id = ?';
+        updateValues.push(id);
+        
+        // Si no hay campos para actualizar
+        if (updateValues.length === 1) {
+            await connection.rollback();
+            return res.status(400).json({
+                ok: false,
+                msg: 'No se proporcionaron campos para actualizar'
+            });
+        }
+        
+        // Ejecutar la actualización
+        await connection.execute(updateQuery, updateValues);
         
         await connection.commit();
         
@@ -234,11 +283,8 @@ const updatePortada = async (req, res) => {
             msg: 'Portada actualizada correctamente',
             portada: {
                 id: parseInt(id),
-                url,
-                titulo,
-                descripcion,
-                activo,
-                idProducto
+                url: portadaActual.url, // Mantenemos la URL original
+                ...updatedFields
             }
         });
     } catch (error) {

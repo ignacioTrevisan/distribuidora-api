@@ -26,29 +26,26 @@ router.get('/producto/:idProducto', getPortadasByProducto);
 // Crear una nueva portada
 router.post('/', [
     validarJWT,
-    validarAdmin,
+    
     check('url', 'La URL de la imagen es obligatoria').not().isEmpty(),
     check('titulo', 'El título puede tener máximo 100 caracteres').isLength({ max: 100 })
 ], createPortada);
 
 // Actualizar una portada
+// Actualizar una portada
 router.put('/:id', [
     validarJWT,
-    validarAdmin,
-    check('url', 'La URL de la imagen es obligatoria').not().isEmpty(),
-    check('titulo', 'El título puede tener máximo 100 caracteres').isLength({ max: 100 })
+    check('titulo', 'El título puede tener máximo 100 caracteres').optional().isLength({ max: 100 })
 ], updatePortada);
 
 // Eliminar una portada
 router.delete('/:id', [
     validarJWT,
-    validarAdmin
-], deletePortada);
+    ], deletePortada);
 
 // Activar/Desactivar una portada
 router.put('/toggle-activo/:id', [
     validarJWT,
-    validarAdmin
-], toggleActivoPortada);
+    ], toggleActivoPortada);
 
 module.exports = router;

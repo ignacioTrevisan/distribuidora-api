@@ -54,12 +54,15 @@ const login = async (req, res) => {
         const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
         // Establecer el token como una cookie HTTP
-        res.cookie('token', token, {
-            httpOnly: true, // Hace que la cookie no sea accesible mediante JavaScript
-            secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
-            sameSite: 'lax', // Protección contra ataques CSRF
-            maxAge: 24 * 60 * 60 * 1000 // 24 horas (ajusta según JWT_EXPIRES_IN)
-        });
+        // Establecer el token como una cookie HTTP
+res.cookie('token', token, {
+    httpOnly: true, // Hace que la cookie no sea accesible mediante JavaScript
+    secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
+    sameSite: 'lax', // Protección contra ataques CSRF
+    maxAge: 24 * 60 * 60 * 1000, // 24 horas (ajusta según JWT_EXPIRES_IN)
+    domain: '.distribuidoraorganica.com.ar', // Añade esto para que funcione en www y subdominio sin www
+    path: '/' // Asegura que la cookie esté disponible en todo el sitio
+});
 
         // Responder con el token
         return res.status(200).json({
@@ -81,32 +84,30 @@ const login = async (req, res) => {
 
 
 const renovarToken = async (req, res) => {
-    // Usar las propiedades individuales que establece tu middleware
     const uid = req.uid;
     const nombre = req.nombre;
     const email = req.email;
     
     try {
-        // Generar un nuevo JWT
         const payload = { uid, nombre, email };
         const newToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
         
-        // Establecer el nuevo token como cookie (si usas cookies)
+        // Aquí cambia token por newToken
         res.cookie('token', newToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            maxAge: 24 * 60 * 60 * 1000
+            maxAge: 24 * 60 * 60 * 1000,
+            domain: '.distribuidoraorganica.com.ar',
+            path: '/'
         });
         
-        // Enviar respuesta
         return res.json({
             authenticated: true,
             ok: true,
             uid,
             nombre,
             email
-            
         });
     } catch (error) {
         console.error('Error al renovar token:', error);
@@ -180,16 +181,17 @@ const register = async (req, res) => {
     }
 };
 const borrarJWT = async (req, res) => {
-  
   try {
-    // Eliminar la cookie configurando su expiración en el pasado
+    // Para eliminar una cookie, estableces su tiempo de expiración en el pasado
     res.cookie('token', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      expires: new Date(0) // Fecha en el pasado = eliminación inmediata
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        expires: new Date(0), // Fecha en el pasado para borrar la cookie
+        domain: '.distribuidoraorganica.com.ar',
+        path: '/'
     });
-
+    
     return res.status(200).json({
       ok: true,
       msg: 'Sesión cerrada correctamente'
@@ -202,7 +204,6 @@ const borrarJWT = async (req, res) => {
     });
   }
 };
-
 
 module.exports = {
     login,

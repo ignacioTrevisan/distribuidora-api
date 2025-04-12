@@ -109,7 +109,7 @@ const getProductoById = async (req, res) => {
             JOIN secciones s ON p.id_seccion = s.id
             JOIN categorias_secciones cs ON s.id = cs.idSeccion
             JOIN categorias c ON cs.idCategoria = c.id
-            WHERE p.slug = ? AND p.activo = 1 AND s.activo = 1
+            WHERE p.slug = ? AND p.activo = 1 AND s.activo = 1 and c.activo = 1
         `, [id]);
         
         if (productos.length === 0) {
@@ -119,17 +119,11 @@ const getProductoById = async (req, res) => {
             });
         }
         
-        // No modificamos las URLs de las imágenes ya que vienen como URLs completas de Cloudinary
-        const producto = {
-            ...productos[0],
-            imagenPrincipal: productos[0].imagenPrincipal || null,
-            imagen2: productos[0].imagen2 || null,
-            imagen3: productos[0].imagen3 || null
-        };
+      
 
         res.json({
             ok: true,
-            producto
+            producto: productos[0]
         });
     } catch (error) {
         console.error('Error al obtener producto por ID:', error);

@@ -8,7 +8,7 @@ require('dotenv').config();
 
 // Configuración CORS más detallada
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'], // Orígenes permitidos
+    origin: ['http://149.50.142.58', 'http://localhost:3000'], // Múltiples orígenes
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Métodos permitidos
     allowedHeaders: ['Content-Type', 'x-token', 'Authorization'], // Encabezados permitidos,
     credentials:true,
@@ -25,7 +25,7 @@ app.use('/api/products', require('./routes/productos'));
 app.use('/api/cantidadInicial', require('./routes/cantidadInicial'));
 app.use('/api/portadas', require('./routes/portadas'))
 
-const PORT = 4000;
-app.listen(PORT, () => {
+const PORT = 3001;
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });

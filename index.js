@@ -32,7 +32,6 @@ app.use("/api/products", require("./routes/productos"));
 app.use("/api/cantidadInicial", require("./routes/cantidadInicial"));
 app.use("/api/portadas", require("./routes/portadas"));
 
-const PORT = 3001;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en http://localhost:${process.env.PORT}`);
 });

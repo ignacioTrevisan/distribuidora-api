@@ -5,7 +5,7 @@ const { validationResult } = require("express-validator");
 
 // Secreto para JWT - idealmente esto debería estar en variables de entorno
 const JWT_SECRET = process.env.JWT_SECRET;
-console.log({ JWT_SECRET });
+
 const JWT_EXPIRES_IN = "24h";
 
 const pool = require("../config/db");

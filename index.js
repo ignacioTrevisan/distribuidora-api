@@ -2,10 +2,11 @@ const express = require("express");
 const app = express();
 const mysql = require("mysql2/promise");
 const cookieParser = require("cookie-parser");
+const { configDotenv } = require("dotenv");
 
 const cors = require("cors");
-require("dotenv").config();
 
+require("dotenv").config();
 // Configuración CORS más detallada
 app.use(
   cors({
@@ -32,6 +33,6 @@ app.use("/api/products", require("./routes/productos"));
 app.use("/api/cantidadInicial", require("./routes/cantidadInicial"));
 app.use("/api/portadas", require("./routes/portadas"));
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(process.env.PORT, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://localhost:${process.env.PORT}`);
 });

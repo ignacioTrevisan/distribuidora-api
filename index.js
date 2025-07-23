@@ -32,6 +32,10 @@ app.use("/api/sections", require("./routes/secciones"));
 app.use("/api/products", require("./routes/productos"));
 app.use("/api/cantidadInicial", require("./routes/cantidadInicial"));
 app.use("/api/portadas", require("./routes/portadas"));
+app.use("/api/rubros", require("./routes/rubros"));
+app.use("/api/muestra", require("./routes/muestra"));
+app.use("/api/newProducts", require("./routes/newProducts"));
+app.use("/api/seed", require("./routes/seed"));
 
 app.listen(process.env.PORT, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://localhost:${process.env.PORT}`);
